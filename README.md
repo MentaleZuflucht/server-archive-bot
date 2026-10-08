@@ -36,6 +36,9 @@ ARCHIVE_HISTORY=false
 
 DATABASE_URL=postgresql://user:password@host:5432/database
 
+# Docker only. The bot's IP on the br0 network. Pick a free one outside your router's DHCP range.
+BOT_IP=192.168.0.50
+
 # Optional. DEBUG, INFO, WARNING or ERROR. Defaults to INFO.
 LOG_LEVEL=INFO
 ```
@@ -52,6 +55,8 @@ docker compose up -d
 ```
 
 This pulls the prebuilt image from GHCR. Files are saved to `./archive`; change the volume in `docker-compose.yml` to store them somewhere else. Logs are kept in the `logs` volume.
+
+The container joins the existing `br0` network (Unraid's custom network) with the IP from `BOT_IP`. This lets it reach a database container that has its own IP on `br0`, which containers on the default bridge network cannot.
 
 The bot runs as UID 1000 in the container. If it says it cannot write to the archive folder, give that user the folder with `sudo chown 1000:1000 archive`.
 

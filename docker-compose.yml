@@ -8,8 +8,15 @@ services:
       # Change ./archive to store the files somewhere else on the host.
       - ./archive:/app/archive
       - logs:/app/logs
+    networks:
+      br0:
+        ipv4_address: ${BOT_IP:?Set BOT_IP in .env}
     labels:
       - com.centurylinklabs.watchtower.enable=true
+
+networks:
+  br0:
+    external: true
 
 volumes:
   logs:

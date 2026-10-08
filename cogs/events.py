@@ -6,6 +6,7 @@ import asyncio
 import secrets
 from pathlib import Path
 from datetime import datetime
+from database import AttachmentInfo
 
 
 class BotEvents(commands.Cog):
@@ -65,9 +66,7 @@ class BotEvents(commands.Cog):
                 self.bot_logger.info(f'Found attachment: {attachment.filename}')
                 try:
                     await self._ensure_session()
-                    await self.download_attachment(
-                        attachment, message.channel, channel_name, thread_name, message.created_at
-                    )
+                    await self.download_attachment(attachment, message, channel_name, thread_name)
                 except Exception as e:
                     self.bot_logger.error(f"Error downloading attachment {attachment.filename}: {e}")
         else:
@@ -139,7 +138,7 @@ class BotEvents(commands.Cog):
 
                         try:
                             await self.download_attachment(
-                                attachment, channel, channel_name, thread_name, message.created_at
+                                attachment, message, channel_name, thread_name
                             )
 
                             # Rate limiting: small delay every 10 attachments
@@ -190,12 +189,25 @@ class BotEvents(commands.Cog):
                 await asyncio.sleep(5)
 
     async def download_attachment(
-        self, attachment, channel, channel_name: str, thread_name: str = None, message_date=None
+        self, attachment, message, channel_name: str, thread_name: str = None
     ):
         """Downloads an attachment if it hasn't been downloaded already."""
-        # Check if already downloaded using database
-        if self.bot.db_manager.is_downloaded(attachment.url):
-            self.bot_logger.debug(f'Attachment already downloaded: {attachment.url}')
+        info = AttachmentInfo(
+            id=attachment.id,
+            message_id=message.id,
+            channel_id=message.channel.id,
+            guild_id=message.guild.id if message.guild else None,
+            author_id=message.author.id,
+            filename=attachment.filename,
+            content_type=attachment.content_type,
+            size=attachment.size,
+            url=attachment.url.split('?', 1)[0],
+            message_url=message.jump_url,
+            message_date=message.created_at,
+        )
+        # Stores the link even if the download below fails
+        if await self.bot.db.record_attachment(info):
+            self.bot_logger.debug(f'Attachment already downloaded: {attachment.id}')
             return
 
         # Create directory path based on channel and thread names
@@ -234,18 +246,9 @@ class BotEvents(commands.Cog):
                 with open(file_path, 'wb') as output:
                     output.write(content)
 
-                # Add to database
-                success = self.bot.db_manager.add_attachment(
-                    url=attachment.url,
-                    filename=attachment.filename,
-                    channel_id=channel.id,
-                    message_date=message_date
-                )
-
-                if success:
-                    self.bot_logger.debug(f'Attachment saved as: {random_filename}')
-                else:
-                    self.bot_logger.debug(f'Attachment URL already in database: {attachment.url}')
+                relative_path = file_path.relative_to(self.bot.config.archive_dir).as_posix()
+                await self.bot.db.mark_downloaded(attachment.id, relative_path)
+                self.bot_logger.debug(f'Attachment saved as: {random_filename}')
 
                 return  # Success, exit retry loop
 

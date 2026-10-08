@@ -4,7 +4,7 @@ import logging
 from dotenv import load_dotenv
 from config import ConfigError, load_settings
 from logging_config import setup_logging
-from database import DatabaseManager
+from database import Database
 from cogs.events import BotEvents
 import asyncio
 
@@ -28,15 +28,15 @@ async def main():
     intents = discord.Intents(guilds=True, guild_messages=True, message_content=True)
     bot = commands.Bot(command_prefix='!', intents=intents)
     bot.config = settings
-    bot.db_manager = DatabaseManager(settings.database_url)
-    bot_logger.info('Database initialized')
+    bot.db = Database(settings.database_url)
 
     try:
+        await bot.db.init()
         async with bot:
             await bot.add_cog(BotEvents(bot))
             await bot.start(settings.token)
     finally:
-        bot.db_manager.close()
+        await bot.db.close()
 
 
 if __name__ == "__main__":

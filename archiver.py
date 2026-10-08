@@ -50,7 +50,6 @@ class Archiver:
         self._in_flight: set[int] = set()
 
     async def start(self) -> None:
-        self.archive_dir.mkdir(parents=True, exist_ok=True)
         # No total timeout: large videos can take a while. A stalled read still times out.
         timeout = aiohttp.ClientTimeout(total=None, sock_connect=30, sock_read=60)
         self.session = aiohttp.ClientSession(timeout=timeout)

@@ -1,0 +1,15 @@
+services:
+  server-archive-bot:
+    image: ghcr.io/mentalezuflucht/server-archive-bot:latest
+    container_name: server-archive-bot
+    restart: unless-stopped
+    env_file: .env
+    volumes:
+      # Change ./archive to store the files somewhere else on the host.
+      - ./archive:/app/archive
+      - logs:/app/logs
+    labels:
+      - com.centurylinklabs.watchtower.enable=true
+
+volumes:
+  logs:

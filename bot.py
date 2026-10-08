@@ -6,6 +6,7 @@ import asyncio
 import contextlib
 import logging
 import signal
+from pathlib import Path
 
 import discord
 from dotenv import load_dotenv
@@ -95,6 +96,15 @@ def main() -> None:
     except ConfigError as exc:
         logger.critical('%s', exc)
         raise SystemExit(1) from None
+    try:
+        _check_writable(settings.archive_dir)
+    except OSError as exc:
+        logger.critical(
+            'Cannot write to the archive folder %s: %s. In Docker, the folder must be '
+            'writable by UID 1000 (sudo chown 1000:1000 archive).',
+            settings.archive_dir, exc,
+        )
+        raise SystemExit(1) from None
     logger.info('Archiving %s channel(s) to %s', len(settings.channel_ids), settings.archive_dir)
 
     try:
@@ -112,6 +122,13 @@ def main() -> None:
     except Exception:
         logger.critical('The bot stopped because of an unhandled error.', exc_info=True)
         raise SystemExit(1) from None
+
+
+def _check_writable(folder: Path) -> None:
+    folder.mkdir(parents=True, exist_ok=True)
+    probe = folder / '.write-test'
+    probe.touch()
+    probe.unlink()
 
 
 if __name__ == '__main__':

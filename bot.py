@@ -1,7 +1,8 @@
 import discord
 from discord.ext import commands
 import logging
-from config import setup_logging, get_bot_config
+from config import get_bot_config
+from logging_config import setup_logging
 from database import DatabaseManager
 from cogs.events import BotEvents
 import asyncio

@@ -107,9 +107,3 @@ The bot creates its tables on first start.
 Discord adds an expiring signature (`?ex=…&is=…&hm=…`) to attachment links, and they stop working after about a day. The bot stores the link without it. Discord can sign that link again: the Discord app does this when you paste it, and bots can use the `POST /attachments/refresh-urls` API endpoint.
 
 This only works while Discord still has the file. Discord usually deletes the files of a deleted message, so the downloaded copy is the one that lasts.
-
-## Upgrading from the old version
-
-- `config/bot_config.yaml` and `config/logging_config.yaml` are gone. Move your settings into `.env`. The token setting is now `DISCORD_TOKEN` (was `BOT_TOKEN`), and `archiving` is now `ARCHIVE_HISTORY`.
-- On first start, the old `attachments` table is renamed to `attachments_legacy` and its rows are imported, so files you already have are not downloaded again. Drop `attachments_legacy` once you are happy with the import.
-- New files are named `<attachment id>_<original name>`. Existing files keep their random names.

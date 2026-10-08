@@ -32,7 +32,7 @@ class BotEvents(commands.Cog):
         self.bot_logger.info(f'Logged in as {self.bot.user}')
         self.bot_logger.info('Bot ready')
 
-        if self.bot.config.archiving:
+        if self.bot.config.archive_history:
             self.bot_logger.debug(f'Archiving pictures in these channels: {self.bot.config.channel_ids}')
             try:
                 await self._ensure_session()
@@ -199,7 +199,7 @@ class BotEvents(commands.Cog):
             return
 
         # Create directory path based on channel and thread names
-        directory_path = Path(self.bot.config.folder_path) / channel_name
+        directory_path = self.bot.config.archive_dir / channel_name
         if thread_name:
             directory_path = directory_path / thread_name
 

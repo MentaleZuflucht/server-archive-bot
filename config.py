@@ -1,85 +1,68 @@
+"""Bot settings, read from environment variables (a .env file is loaded first, if present)."""
+
+from __future__ import annotations
+
 import os
-import yaml
-import logging
+from dataclasses import dataclass, field
 from pathlib import Path
-from dotenv import load_dotenv
 
-# Load environment variables from .env file
-load_dotenv()
-
-# Base directory of the project
 BASE_DIR = Path(__file__).resolve().parent
+# In Docker, mount the host folder here (see docker-compose.yml).
+ARCHIVE_DIR = BASE_DIR / "archive"
 
-CONFIG_FOLDER_PATH = BASE_DIR / 'config'
-
-
-class BotConfig:
-    """
-    Singleton class to load and provide bot configuration.
-
-    Attributes:
-        token (str): The bot token.
-        folder_path (str): The path to the folder where attachments are saved.
-        channel_ids (list): A list of channel IDs that should be archived.
-        archiving (bool): Flag to enable archiving.
-        db_path (str): Path to the SQLite database file.
-    """
-
-    _instance = None
-
-    def __new__(cls):
-        """
-        Creates a new instance of BotConfig if it doesn't exist.
-
-        Returns:
-            BotConfig: The singleton instance of BotConfig.
-        """
-        if cls._instance is None:
-            cls._instance = super(BotConfig, cls).__new__(cls)
-            cls._instance._load_config()
-        return cls._instance
-
-    def _load_config(self):
-        """
-        Loads configuration from a YAML file and environment variables.
-
-        Bot token is loaded from BOT_TOKEN environment variable first,
-        falling back to YAML file if not found.
-
-        Raises:
-            FileNotFoundError: If the bot configuration file is not found.
-            yaml.YAMLError: If there is an error parsing the YAML file.
-            Exception: For any other unexpected errors.
-        """
-        try:
-            with open(CONFIG_FOLDER_PATH / 'bot_config.yaml', 'r') as config_file:
-                config = yaml.safe_load(config_file)
-
-                # Load bot token from environment variable first, fallback to YAML
-                self.token = os.getenv('BOT_TOKEN', config.get('token'))
-                if not self.token:
-                    raise ValueError("Bot token not found in environment variable BOT_TOKEN or config file")
-
-                self.folder_path = config['folder_path']
-                self.channel_ids = config['channel_ids']
-                self.archiving = config['archiving']
-
-        except FileNotFoundError:
-            logging.error(f"Bot configuration file not found: {CONFIG_FOLDER_PATH / 'bot_config.yaml'}")
-            raise
-        except yaml.YAMLError as e:
-            logging.error(f"Error parsing YAML file: {e}")
-            raise
-        except Exception as e:
-            logging.error(f"Unexpected error in Bot Configuration: {e}")
-            raise
+TRUE_VALUES = {"1", "true", "yes", "on"}
+FALSE_VALUES = {"0", "false", "no", "off", ""}
 
 
-def get_bot_config():
-    """
-    Gets the singleton instance of BotConfig.
+class ConfigError(Exception):
+    """Raised when a setting is missing or invalid."""
 
-    Returns:
-        BotConfig: The singleton instance of BotConfig.
-    """
-    return BotConfig()
+
+@dataclass(frozen=True)
+class Settings:
+    # Secrets are left out of repr so they never end up in a log line.
+    token: str = field(repr=False)
+    channel_ids: frozenset[int]
+    archive_dir: Path
+    archive_history: bool
+    database_url: str = field(repr=False)
+
+
+def load_settings() -> Settings:
+    """Read and validate all settings. Raises ConfigError with a readable message."""
+    return Settings(
+        token=_required("DISCORD_TOKEN"),
+        channel_ids=_parse_channel_ids(_required("CHANNEL_IDS")),
+        archive_dir=ARCHIVE_DIR,
+        archive_history=_parse_bool("ARCHIVE_HISTORY", os.environ.get("ARCHIVE_HISTORY", "")),
+        database_url=_required("DATABASE_URL"),
+    )
+
+
+def _required(name: str) -> str:
+    value = os.environ.get(name, "").strip()
+    if not value:
+        raise ConfigError(f"Missing {name}. Copy .env.example to .env and fill it in.")
+    return value
+
+
+def _parse_channel_ids(raw: str) -> frozenset[int]:
+    ids = set()
+    for part in raw.replace(" ", "").split(","):
+        if not part:
+            continue
+        if not part.isdigit():
+            raise ConfigError(f"CHANNEL_IDS must be comma separated channel IDs, got {part!r}.")
+        ids.add(int(part))
+    if not ids:
+        raise ConfigError("CHANNEL_IDS has no channel IDs.")
+    return frozenset(ids)
+
+
+def _parse_bool(name: str, raw: str) -> bool:
+    value = raw.strip().lower()
+    if value in TRUE_VALUES:
+        return True
+    if value in FALSE_VALUES:
+        return False
+    raise ConfigError(f"{name} must be true or false, got {raw!r}.")

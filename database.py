@@ -2,9 +2,7 @@
 PostgreSQL database manager using SQLAlchemy for the Discord server archive bot.
 """
 
-from typing import Optional
 import logging
-import os
 from datetime import datetime
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, Session
@@ -15,22 +13,14 @@ from models import Base, Attachment
 class DatabaseManager:
     """PostgreSQL database manager using SQLAlchemy."""
 
-    def __init__(self, database_url: Optional[str] = None):
+    def __init__(self, database_url: str):
         """
         Initialize the database manager.
 
         Args:
-            database_url: PostgreSQL connection string. If None, will try to get from environment.
+            database_url: PostgreSQL connection string.
         """
         self.logger = logging.getLogger('bot.database')
-
-        # Get database URL from parameter or environment
-        if database_url is None:
-            database_url = os.getenv('DATABASE_URL')
-            if database_url is None:
-                self.logger.error(
-                    "No DATABASE_URL provided"
-                )
 
         # Create engine with connection pooling
         self.engine = create_engine(

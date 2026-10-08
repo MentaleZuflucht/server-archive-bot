@@ -11,6 +11,7 @@ from datetime import datetime
 from sqlalchemy import func, inspect, select, text, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.engine import URL, make_url
+from sqlalchemy.exc import ArgumentError
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
 
 from models import Attachment, Base, ScanProgress
@@ -56,7 +57,7 @@ class Database:
 
     def __init__(self, database_url: str):
         self.engine = create_async_engine(
-            _asyncpg_url(database_url),
+            asyncpg_url(database_url),
             pool_size=5,
             pool_pre_ping=True,
             pool_recycle=3600,
@@ -166,11 +167,17 @@ def _rename_legacy_table(conn) -> bool:
     return True
 
 
-def _asyncpg_url(raw: str) -> URL:
-    """Accept the usual postgresql:// URLs and point them at the asyncpg driver."""
-    url = make_url(raw.replace('postgres://', 'postgresql://', 1))
+def asyncpg_url(raw: str) -> URL:
+    """Accept the usual postgresql:// URLs and point them at the asyncpg driver.
+
+    Raises ValueError if the URL cannot be used.
+    """
+    try:
+        url = make_url(raw.replace('postgres://', 'postgresql://', 1))
+    except ArgumentError:
+        raise ValueError('expected postgresql://user:password@host:port/database') from None
     if url.get_backend_name() != 'postgresql':
-        raise ValueError(f'DATABASE_URL must be a PostgreSQL URL, not {url.drivername}.')
+        raise ValueError(f'expected a PostgreSQL URL, not {url.drivername}')
     url = url.set(drivername='postgresql+asyncpg')
     # asyncpg calls libpq's sslmode "ssl".
     sslmode = url.query.get('sslmode')

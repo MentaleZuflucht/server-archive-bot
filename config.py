@@ -6,6 +6,8 @@ import os
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from database import asyncpg_url
+
 BASE_DIR = Path(__file__).resolve().parent
 # In Docker, mount the host folder here (see docker-compose.yml).
 ARCHIVE_DIR = BASE_DIR / "archive"
@@ -35,7 +37,7 @@ def load_settings() -> Settings:
         channel_ids=_parse_channel_ids(_required("CHANNEL_IDS")),
         archive_dir=ARCHIVE_DIR,
         archive_history=_parse_bool("ARCHIVE_HISTORY", os.environ.get("ARCHIVE_HISTORY", "")),
-        database_url=_required("DATABASE_URL"),
+        database_url=_parse_database_url(_required("DATABASE_URL")),
     )
 
 
@@ -57,6 +59,14 @@ def _parse_channel_ids(raw: str) -> frozenset[int]:
     if not ids:
         raise ConfigError("CHANNEL_IDS has no channel IDs.")
     return frozenset(ids)
+
+
+def _parse_database_url(raw: str) -> str:
+    try:
+        asyncpg_url(raw)
+    except ValueError as exc:
+        raise ConfigError(f"DATABASE_URL is not valid: {exc}.") from None
+    return raw
 
 
 def _parse_bool(name: str, raw: str) -> bool:
